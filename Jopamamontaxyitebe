@@ -1,0 +1,129 @@
+--// Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+
+--// Variables
+local savedPosition = nil
+local lastPosition = nil
+local noclipEnabled = false
+
+--// GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 250, 0, 220)
+MainFrame.Position = UDim2.new(0.5, -125, 0.5, -110)
+MainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+MainFrame.BackgroundTransparency = 0.3
+MainFrame.BorderSizePixel = 0
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+MainFrame.Parent = ScreenGui
+MainFrame.ClipsDescendants = true
+MainFrame.Draggable = true
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 12)
+UICorner.Parent = MainFrame
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(0, 162, 255)
+UIStroke.Thickness = 2
+UIStroke.Parent = MainFrame
+
+-- Title
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.BackgroundTransparency = 1
+Title.Text = "Teleport & NoClip"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.SourceSansBold
+Title.TextSize = 20
+Title.Parent = MainFrame
+
+-- Collapse Button
+local CollapseBtn = Instance.new("TextButton")
+CollapseBtn.Size = UDim2.new(0, 30, 0, 30)
+CollapseBtn.Position = UDim2.new(1, -35, 0, 0)
+CollapseBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+CollapseBtn.Text = "-"
+CollapseBtn.TextColor3 = Color3.fromRGB(255,255,255)
+CollapseBtn.Font = Enum.Font.SourceSansBold
+CollapseBtn.TextSize = 20
+CollapseBtn.Parent = MainFrame
+Instance.new("UICorner", CollapseBtn)
+
+CollapseBtn.MouseButton1Click:Connect(function()
+    for i, v in pairs(MainFrame:GetChildren()) do
+        if v:IsA("TextButton") and v ~= CollapseBtn then
+            v.Visible = not v.Visible
+        end
+    end
+    CollapseBtn.Text = CollapseBtn.Text == "-" and "+" or "-"
+end)
+
+-- Button Creator
+local function createButton(name, yPos, callback)
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(0, 200, 0, 35)
+    Btn.Position = UDim2.new(0.5, -100, 0, yPos)
+    Btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Btn.Font = Enum.Font.SourceSans
+    Btn.TextSize = 18
+    Btn.Text = name
+    Btn.Parent = MainFrame
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = Btn
+    Btn.MouseButton1Click:Connect(callback)
+    return Btn
+end
+
+--// Buttons
+createButton("Сохранить точку", 40, function()
+    savedPosition = HumanoidRootPart.Position
+end)
+
+createButton("Тп в точку", 80, function()
+    if savedPosition then
+        HumanoidRootPart.CFrame = CFrame.new(savedPosition)
+    end
+end)
+
+createButton("Тп назад", 120, function()
+    if lastPosition then
+        HumanoidRootPart.CFrame = CFrame.new(lastPosition)
+    end
+end)
+
+local noclipBtn = createButton("NoClip: Выкл", 160, function()
+    noclipEnabled = not noclipEnabled
+    noclipBtn.Text = noclipEnabled and "NoClip: Вкл" or "NoClip: Выкл"
+end)
+
+--// NoClip Loop
+RunService.Stepped:Connect(function()
+    if noclipEnabled then
+        for _, part in pairs(Character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    else
+        for _, part in pairs(Character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = true
+            end
+        end
+    end
+end)
+
+-- Track last position for teleport back
+RunService.Heartbeat:Connect(function()
+    lastPosition = HumanoidRootPart.Position
+end)
