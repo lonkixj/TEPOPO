@@ -1,129 +1,158 @@
 --// Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+local Humanoid = Character:WaitForChild("Humanoid")
 
 --// Variables
-local savedPosition = nil
-local lastPosition = nil
 local noclipEnabled = false
 
 --// GUI
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+local ScreenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+ScreenGui.Name = "PhoneGUI"
 
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 250, 0, 220)
-MainFrame.Position = UDim2.new(0.5, -125, 0.5, -110)
-MainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-MainFrame.BackgroundTransparency = 0.3
-MainFrame.BorderSizePixel = 0
-MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-MainFrame.Parent = ScreenGui
-MainFrame.ClipsDescendants = true
-MainFrame.Draggable = true
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 260, 0, 250)
+MainFrame.Position = UDim2.new(0, 10, 0, 50)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 
-local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 12)
-UICorner.Parent = MainFrame
-
-local UIStroke = Instance.new("UIStroke")
-UIStroke.Color = Color3.fromRGB(0, 162, 255)
-UIStroke.Thickness = 2
-UIStroke.Parent = MainFrame
-
--- Title
-local Title = Instance.new("TextLabel")
+-- Watermark
+local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, 0, 0, 30)
-Title.BackgroundTransparency = 1
-Title.Text = "Teleport & NoClip"
+Title.Text = "@Javkison"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.Font = Enum.Font.SourceSansBold
-Title.TextSize = 20
-Title.Parent = MainFrame
+Title.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 18
+
+-- NoClip Button
+local NoClipButton = Instance.new("TextButton", MainFrame)
+NoClipButton.Size = UDim2.new(1, -20, 0, 40)
+NoClipButton.Position = UDim2.new(0, 10, 0, 50)
+NoClipButton.Text = "NoClip [OFF]"
+NoClipButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+NoClipButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+-- Speed Label
+local SpeedLabel = Instance.new("TextLabel", MainFrame)
+SpeedLabel.Size = UDim2.new(1, -20, 0, 20)
+SpeedLabel.Position = UDim2.new(0, 10, 0, 100)
+SpeedLabel.BackgroundTransparency = 1
+SpeedLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+SpeedLabel.Text = "Speed: "..Humanoid.WalkSpeed
+SpeedLabel.Font = Enum.Font.Gotham
+SpeedLabel.TextSize = 14
+
+-- Speed TextBox
+local SpeedSlider = Instance.new("TextBox", MainFrame)
+SpeedSlider.Size = UDim2.new(1, -20, 0, 30)
+SpeedSlider.Position = UDim2.new(0, 10, 0, 120)
+SpeedSlider.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+SpeedSlider.TextColor3 = Color3.fromRGB(255, 255, 255)
+SpeedSlider.Text = tostring(Humanoid.WalkSpeed)
+SpeedSlider.Font = Enum.Font.Gotham
+SpeedSlider.TextSize = 14
+SpeedSlider.ClearTextOnFocus = false
+
+-- TP UP Button
+local TPButton = Instance.new("TextButton", MainFrame)
+TPButton.Size = UDim2.new(1, -20, 0, 40)
+TPButton.Position = UDim2.new(0, 10, 0, 160)
+TPButton.Text = "TP UP +100"
+TPButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+TPButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 
 -- Collapse Button
-local CollapseBtn = Instance.new("TextButton")
-CollapseBtn.Size = UDim2.new(0, 30, 0, 30)
-CollapseBtn.Position = UDim2.new(1, -35, 0, 0)
-CollapseBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-CollapseBtn.Text = "-"
-CollapseBtn.TextColor3 = Color3.fromRGB(255,255,255)
-CollapseBtn.Font = Enum.Font.SourceSansBold
-CollapseBtn.TextSize = 20
-CollapseBtn.Parent = MainFrame
-Instance.new("UICorner", CollapseBtn)
+local CollapseButton = Instance.new("TextButton", MainFrame)
+CollapseButton.Size = UDim2.new(0, 30, 0, 30)
+CollapseButton.Position = UDim2.new(1, -35, 0, 5)
+CollapseButton.BackgroundColor3 = Color3.fromRGB(50,50,50)
+CollapseButton.TextColor3 = Color3.fromRGB(255,255,255)
+CollapseButton.Text = "-"
+CollapseButton.Font = Enum.Font.Gotham
+CollapseButton.TextSize = 18
 
-CollapseBtn.MouseButton1Click:Connect(function()
-    for i, v in pairs(MainFrame:GetChildren()) do
-        if v:IsA("TextButton") and v ~= CollapseBtn then
-            v.Visible = not v.Visible
-        end
-    end
-    CollapseBtn.Text = CollapseBtn.Text == "-" and "+" or "-"
-end)
+--// Draggable for mobile
+local dragging, dragInput, dragStart, startPos
+local collapsed = false
+local originalSize = MainFrame.Size
 
--- Button Creator
-local function createButton(name, yPos, callback)
-    local Btn = Instance.new("TextButton")
-    Btn.Size = UDim2.new(0, 200, 0, 35)
-    Btn.Position = UDim2.new(0.5, -100, 0, yPos)
-    Btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Btn.Font = Enum.Font.SourceSans
-    Btn.TextSize = 18
-    Btn.Text = name
-    Btn.Parent = MainFrame
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
-    corner.Parent = Btn
-    Btn.MouseButton1Click:Connect(callback)
-    return Btn
+local function update(input)
+    local delta = input.Position - dragStart
+    MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
+                                   startPos.Y.Scale, startPos.Y.Offset + delta.Y)
 end
 
---// Buttons
-createButton("Сохранить точку", 40, function()
-    savedPosition = HumanoidRootPart.Position
-end)
-
-createButton("Тп в точку", 80, function()
-    if savedPosition then
-        HumanoidRootPart.CFrame = CFrame.new(savedPosition)
+MainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
     end
 end)
 
-createButton("Тп назад", 120, function()
-    if lastPosition then
-        HumanoidRootPart.CFrame = CFrame.new(lastPosition)
+MainFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
     end
 end)
 
-local noclipBtn = createButton("NoClip: Выкл", 160, function()
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        update(input)
+    end
+end)
+
+-- Collapse functionality
+CollapseButton.MouseButton1Click:Connect(function()
+    collapsed = not collapsed
+    if collapsed then
+        MainFrame.Size = UDim2.new(MainFrame.Size.X.Scale, MainFrame.Size.X.Offset,0,30)
+        for _,v in pairs(MainFrame:GetChildren()) do
+            if v ~= CollapseButton and v ~= Title then
+                v.Visible = false
+            end
+        end
+        CollapseButton.Text = "+"
+    else
+        MainFrame.Size = originalSize
+        for _,v in pairs(MainFrame:GetChildren()) do
+            v.Visible = true
+        end
+        CollapseButton.Text = "-"
+    end
+end)
+
+-- Button functionality
+NoClipButton.MouseButton1Click:Connect(function()
     noclipEnabled = not noclipEnabled
-    noclipBtn.Text = noclipEnabled and "NoClip: Вкл" or "NoClip: Выкл"
+    NoClipButton.Text = noclipEnabled and "NoClip [ON]" or "NoClip [OFF]"
 end)
 
---// NoClip Loop
+SpeedSlider.FocusLost:Connect(function()
+    local val = tonumber(SpeedSlider.Text)
+    if val then Humanoid.WalkSpeed = val; SpeedLabel.Text = "Speed: "..val end
+end)
+
+TPButton.MouseButton1Click:Connect(function()
+    HumanoidRootPart.CFrame = HumanoidRootPart.CFrame + Vector3.new(0,100,0)
+end)
+
+-- NoClip
 RunService.Stepped:Connect(function()
     if noclipEnabled then
-        for _, part in pairs(Character:GetChildren()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = false
-            end
-        end
-    else
-        for _, part in pairs(Character:GetChildren()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = true
+        for _,p in pairs(Character:GetDescendants()) do
+            if p:IsA("BasePart") then
+                p.CanCollide = false
             end
         end
     end
-end)
-
--- Track last position for teleport back
-RunService.Heartbeat:Connect(function()
-    lastPosition = HumanoidRootPart.Position
 end)
